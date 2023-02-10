@@ -9,6 +9,10 @@ from utils.tools import base_loss, generate_positive_negative_samples_overlay
 from utils.layers import FFLinear
 from torchvision.transforms import Compose, ToTensor, Lambda, Normalize
 import warnings
+from torch.utils.data import DataLoader
+from numpy import nan
+import itertools
+
 
 class FowardForwardNN(Module, FFSequentialModel):
     
@@ -19,6 +23,9 @@ class FowardForwardNN(Module, FFSequentialModel):
         self.set_test_batch_size(test_batch_size)
         self._layers = layers
         self._network = None
+        self._last_train_accuracy = nan
+        self._last_test_accuracy = nan
+        self._n_classes = -1
 
     def set_train_batch_size(self, train_batch_size: int = 1024) -> object:
         self._train_batch_size = train_batch_size
@@ -57,8 +64,59 @@ class FowardForwardNN(Module, FFSequentialModel):
     def get_layers(self) -> list[FFLinear]:
         return self._layers
     
-    def save(self) -> object:
-        return self
+    def _check_classes(self, train_loader: DataLoader, n_classes: int = None) -> None:
+        if n_classes is None:
+            if self._n_classes == -1:
+                self._n_classes = len(set(list(itertools.chain([Y.tolist() for X, Y in train_loader]))[0]))
+        elif self._n_classes == -1:
+            self._n_classes = n_classes
 
-    def fit() -> None:
-        pass
+    def fit(self, train_loader: DataLoader, before: bool, n_epochs: int = 10, n_classes: int = None) -> None:
+        self._check_classes(train_loader, n_classes)
+
+        train_loader_ff = torch.utils.data.DataLoader(TrainingDatasetFF(generate_positive_negative_samples_overlay(X.to(self._device),
+                                                                           Y.to(self._device), False)
+                                                                for X, Y in train_loader),
+                                              batch_size=train_loader.batch_size, shuffle=True
+                                              )
+        for epoch in tqdm(range(n_epochs)):
+            for X_pos, Y_neg in train_loader_ff:
+                layer_losses = super(FowardForwardNN, self).train_batch(X_pos, Y_neg, before)
+                print(", ".join(map(lambda i, l: 'Layer {}: {}'.format(i, l),list(range(len(layer_losses))) ,layer_losses)), end='\r')
+
+    def test(self, loader: DataLoader, train: bool = False):
+        acc = 0
+
+        for X_, Y_ in tqdm(loader, total=len(loader)):
+            X_ = X_.to(self._device)
+            Y_ = Y_.to(self._device)
+
+            acc += (self.predict_accomulate_goodness(X_,
+                    generate_positive_negative_samples_overlay, n_class=self._n_classes).eq(Y_).sum())
+        accuracy = acc/float(len(loader))
+        print(f"Accuracy: {accuracy:.4%}")
+        print(f"{'Train' if train == True else 'Test'} error: {1 - accuracy:.4%}")
+
+        if train == True:
+            self._set_last_train_accuracy(accuracy)
+        else:
+            self._set_last_test_accuracy(accuracy)
+
+    def predict(self, X: torch.Tensor) -> torch.Tensor:
+        return self.predict_accomulate_goodness(
+            X,
+            pos_gen_fn=generate_positive_negative_samples_overlay,
+            n_class=self._n_classes
+        )
+
+    def _set_last_test_accuracy(self, accuracy: float) -> None:
+        self._last_test_accuracy = accuracy
+
+    def _set_last_train_accuracy(self, accuracy: float) -> None:
+        self._last_train_accuracy = accuracy
+
+    def get_last_train_accuracy(self) -> float:
+        return self._last_train_accuracy
+    
+    def get_last_test_accuracy(self) -> float:
+        return self._last_test_accuracy
