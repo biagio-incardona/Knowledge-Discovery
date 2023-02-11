@@ -64,7 +64,7 @@ class FowardForwardNN(Module, FFSequentialModel):
             raise ValueError(f"Position of layer not valid, please use value between 1 and {len(self._layers)}")
         return self
             
-    def get_layers(self) -> list[FFLinear]:
+    def get_layers(self) -> list:
         return self._layers
     
     def _check_classes(self, train_loader: DataLoader, n_classes: int = None) -> None:
@@ -90,14 +90,15 @@ class FowardForwardNN(Module, FFSequentialModel):
 
     def test(self, loader: DataLoader, train: bool = False):
         acc = 0
-
+        units = 0
         for X_, Y_ in tqdm(loader, total=len(loader)):
             X_ = X_.to(self._device)
             Y_ = Y_.to(self._device)
-
+            units += len(Y_)
             acc += (self.predict_accomulate_goodness(X_,
                     generate_positive_negative_samples_overlay, n_class=self._n_classes).eq(Y_).sum())
-        accuracy = acc/float(len(loader))
+        #df = loader.train_set if train == True else loader.test_set
+        accuracy = acc/float(units)
         print(f"Accuracy: {accuracy:.4%}")
         print(f"{'Train' if train == True else 'Test'} error: {1 - accuracy:.4%}")
 

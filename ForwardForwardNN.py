@@ -64,7 +64,7 @@ class FowardForwardNN(Module, FFSequentialModel):
             raise ValueError(f"Position of layer not valid, please use value between 1 and {len(self._layers)}")
         return self
             
-    def get_layers(self) -> list[FFLinear]:
+    def get_layers(self) -> list:
         return self._layers
     
     def _check_classes(self, train_loader: DataLoader, n_classes: int = None) -> None:
