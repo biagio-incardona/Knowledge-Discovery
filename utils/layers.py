@@ -55,8 +55,8 @@ class FFLinear(Linear):
         """
         x = x / (x.norm(2, 1, keepdim=True) + 1e-8)  # mormalize input
         return self.activation(
-            torch.mm(x, self.weight.T) +
-            self.bias.unsqueeze(0))
+            torch.mm(x.to('cuda'), self.weight.T.to('cuda') +
+            self.bias.unsqueeze(0).to('cuda'))
 
     def train_layer(self, X_pos: torch.Tensor, X_neg: torch.Tensor, before: bool) -> Tuple[torch.Tensor, torch.Tensor, int]:
         """Train layer with FF algorithm
