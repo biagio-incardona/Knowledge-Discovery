@@ -15,17 +15,20 @@ import itertools
 
 
 class FowardForwardNN(Module, FFSequentialModel):
-    
-    def __init__(self, train_batch_size: int = 1024, test_batch_size: int = 1024, layers: torch.nn.ModuleList[FFLinear] = []) -> None:
-        super(FowardForwardNN, self).__init__()
+
+    def __init__(self, train_batch_size: int = 1024, test_batch_size: int = 1024, layers: torch.nn.ModuleList = None) -> None:
+#        super(FowardForwardNN, self).__init__()
+        print(layers)
         self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.set_train_batch_size(train_batch_size)
         self.set_test_batch_size(test_batch_size)
-        self._layers = layers
+        self._layers = [] if layers is None else layers
         self._network = None
         self._last_train_accuracy = nan
         self._last_test_accuracy = nan
         self._n_classes = -1
+        self._train_loader_ff = None
+
 
     def set_train_batch_size(self, train_batch_size: int = 1024) -> object:
         self._train_batch_size = train_batch_size
@@ -71,29 +74,31 @@ class FowardForwardNN(Module, FFSequentialModel):
         elif self._n_classes == -1:
             self._n_classes = n_classes
 
-    def fit(self, train_loader: DataLoader, before: bool, n_epochs: int = 10, n_classes: int = None) -> None:
+    def fit(self, train_loader: DataLoader, before: bool, n_epochs: int = 10, n_classes: int = None, reload: bool = False) -> None:
         self._check_classes(train_loader, n_classes)
-
-        train_loader_ff = torch.utils.data.DataLoader(TrainingDatasetFF(generate_positive_negative_samples_overlay(X.to(self._device),
+        if self._train_loader_ff is None or reload == True:
+            self._train_loader_ff = torch.utils.data.DataLoader(TrainingDatasetFF(generate_positive_negative_samples_overlay(X.to(self._device),
                                                                            Y.to(self._device), False)
                                                                 for X, Y in train_loader),
                                               batch_size=train_loader.batch_size, shuffle=True
                                               )
+            
         for epoch in tqdm(range(n_epochs)):
-            for X_pos, Y_neg in train_loader_ff:
+            for X_pos, Y_neg in self._train_loader_ff:
                 layer_losses = super(FowardForwardNN, self).train_batch(X_pos, Y_neg, before)
                 print(", ".join(map(lambda i, l: 'Layer {}: {}'.format(i, l),list(range(len(layer_losses))) ,layer_losses)), end='\r')
 
     def test(self, loader: DataLoader, train: bool = False):
         acc = 0
-
+        units = 0
         for X_, Y_ in tqdm(loader, total=len(loader)):
             X_ = X_.to(self._device)
             Y_ = Y_.to(self._device)
-
+            units += len(Y_)
             acc += (self.predict_accomulate_goodness(X_,
                     generate_positive_negative_samples_overlay, n_class=self._n_classes).eq(Y_).sum())
-        accuracy = acc/float(len(loader))
+        #df = loader.train_set if train == True else loader.test_set
+        accuracy = acc/float(units)
         print(f"Accuracy: {accuracy:.4%}")
         print(f"{'Train' if train == True else 'Test'} error: {1 - accuracy:.4%}")
 

@@ -29,7 +29,7 @@ class FFSequentialModel(ABC):
     """
 
     def __init__(self):
-        self.layers = []  # store layers
+        self._layers = []  # store layers
 
     def predict_accomulate_goodness(self, X: torch.Tensor, pos_gen_fn: Callable, n_class: int = None) -> torch.Tensor:
         """Use the network to make predictions on a batch of samples. It makes use of pos_gen_fn function
@@ -47,7 +47,7 @@ class FFSequentialModel(ABC):
         for label in range(n_class):
             h = pos_gen_fn(X, label, True)
             goodness = []
-            for layer in self.layers:
+            for layer in self._layers:
                 h = layer(h)
                 goodness += [h.pow(2).mean(1)]
             goodness_per_label += [sum(goodness).unsqueeze(1)]
@@ -67,7 +67,7 @@ class FFSequentialModel(ABC):
         """
         layers_losses = []
 
-        for layer in self.layers:
+        for layer in self._layers:
             X_pos, X_neg, layer_loss = layer.train_layer(
                 X_pos, X_neg, before=before)
             layers_losses.append(layer_loss)
@@ -80,7 +80,7 @@ class FFSequentialModel(ABC):
             epochs (int): number of epochs per layer
             train_loader_progressive (DataLoader): dataloader with training examples. Positive and negatives
         """
-        for i, layer in tqdm(enumerate(self.layers), total=len(self.layers)):
+        for i, layer in tqdm(enumerate(self._layers), total=len(self._layers)):
             for epoch in range(epochs):
                 for X_pos, X_neg in train_loader_progressive:
                     _, _, layer_loss = layer.train_layer(

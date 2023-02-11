@@ -55,7 +55,6 @@ def generate_positive_negative_samples_overlay(X: torch.Tensor, Y: torch.Tensor,
         Tuple[torch.Tensor]: batch of positive (and negative samples)
     """
     X_pos = X.clone()
-
     X_pos[:, :10] *= 0.0
     X_pos[range(X.shape[0]), Y] = X_pos.max()  # one hot
 
