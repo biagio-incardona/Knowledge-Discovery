@@ -19,7 +19,7 @@ class FowardForwardNN(Module, FFSequentialModel):
     def __init__(self, train_batch_size: int = 1024, test_batch_size: int = 1024, layers: torch.nn.ModuleList = None) -> None:
 #        super(FowardForwardNN, self).__init__()
         print(layers)
-        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self._device = 'cuda'#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.set_train_batch_size(train_batch_size)
         self.set_test_batch_size(test_batch_size)
         self._layers = [] if layers is None else layers
